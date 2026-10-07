@@ -1,0 +1,34 @@
+server:
+  port: ${PORT:8093}
+spring:
+  application:
+    name: partner-agents
+  ai:
+    vertex:
+      ai:
+        gemini:
+          project-id: ${GCP_PROJECT_ID}
+          location: ${GCP_LOCATION:us-central1}
+          chat:
+            options:
+              model: ${GEMINI_MODEL:gemini-2.5-flash}
+guestops:
+  service-name: partner-agents
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8093}
+  # External partner network: receives no guest identity data (PARTNER_SAFE policy).
+  network-zone: partner-net
+  auth:
+    mode: ${SERVICE_AUTH_MODE:SHARED_TOKEN}
+    shared-token: ${SERVICE_SHARED_TOKEN:local-dev-token-change-me}
+  registry:
+    url: ${REGISTRY_URL:http://localhost:8090}
+    self-register: true
+  a2a:
+    server-enabled: true
+  models:
+    standard: ${GEMINI_MODEL:gemini-2.5-flash}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

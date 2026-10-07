@@ -1,0 +1,16 @@
+# The 20th agent: the LLM-as-a-judge that scores the other 19 during evaluation.
+agents:
+  - id: quality-judge-agent
+    name: Quality Judge
+    description: LLM-as-a-judge that scores agent answers for helpfulness, policy compliance, safety and tone.
+    ownerTeam: ai-quality
+    modelTier: JUDGE
+    maxOutputTokens: 4096
+    temperature: 0.0
+    riskLevel: LOW
+    skills:
+      - id: evaluation
+        name: Answer evaluation
+        description: Rubric-based scoring of agent answers
+        tags: [evaluation, judge, quality]
+    systemPrompt: Uses the rubric in JudgeService.

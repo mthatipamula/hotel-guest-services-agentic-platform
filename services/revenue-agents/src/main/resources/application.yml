@@ -1,0 +1,37 @@
+server:
+  port: ${PORT:8092}
+spring:
+  application:
+    name: revenue-agents
+  ai:
+    vertex:
+      ai:
+        gemini:
+          project-id: ${GCP_PROJECT_ID}
+          location: ${GCP_LOCATION:us-central1}
+          chat:
+            options:
+              model: ${GEMINI_MODEL:gemini-2.5-flash}
+guestops:
+  service-name: revenue-agents
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8092}
+  # Separate network: on GCP this service runs in its own Cloud Run service (and can be in another project).
+  network-zone: revenue-net
+  auth:
+    mode: ${SERVICE_AUTH_MODE:SHARED_TOKEN}
+    shared-token: ${SERVICE_SHARED_TOKEN:local-dev-token-change-me}
+  registry:
+    url: ${REGISTRY_URL:http://localhost:8090}
+    self-register: true
+  a2a:
+    server-enabled: true
+  models:
+    standard: ${GEMINI_MODEL:gemini-2.5-flash}
+  mcp:
+    server-id: hotel-mcp-server
+    fallback-url: ${MCP_FALLBACK_URL:}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

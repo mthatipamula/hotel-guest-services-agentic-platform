@@ -1,0 +1,9 @@
+rootProject.name = 'hotel-guest-services-agentic-platform'
+
+include 'libs:agent-commons'
+include 'services:agent-registry'
+include 'services:hotel-mcp-server'
+include 'services:guest-ops-orchestrator'
+include 'services:revenue-agents'
+include 'services:partner-agents'
+include 'services:eval-runner'

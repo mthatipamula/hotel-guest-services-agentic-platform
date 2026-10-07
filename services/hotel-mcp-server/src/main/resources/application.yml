@@ -1,0 +1,60 @@
+server:
+  port: ${PORT:8091}
+spring:
+  application:
+    name: hotel-mcp-server
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/hoteldata}
+    username: ${DB_USER:guestops}
+    password: ${DB_PASSWORD:guestops}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+  flyway:
+    enabled: true
+  ai:
+    model:
+      # This service serves tools and embeddings only; it never calls a chat model.
+      chat: none
+    mcp:
+      server:
+        name: hotel-data-mcp
+        version: 1.0.0
+        type: SYNC
+        protocol: STREAMABLE
+        instructions: "Hotel operations data (reservations, guests, rooms, housekeeping, maintenance, folios) and policy search for Aurora Hotels & Resorts."
+    vertex:
+      ai:
+        embedding:
+          project-id: ${GCP_PROJECT_ID}
+          location: ${GCP_LOCATION:us-central1}
+          text:
+            options:
+              model: ${EMBEDDING_MODEL:text-embedding-005}
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        table-name: policy_chunks
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 768
+guestops:
+  service-name: hotel-mcp-server
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8091}
+  network-zone: core
+  auth:
+    mode: ${SERVICE_AUTH_MODE:SHARED_TOKEN}
+    shared-token: ${SERVICE_SHARED_TOKEN:local-dev-token-change-me}
+  registry:
+    url: ${REGISTRY_URL:http://localhost:8090}
+  hotel:
+    # Service-recovery credit ceilings per loyalty tier, enforced in code (defence in depth).
+    credit-limits:
+      MEMBER: 50
+      SILVER: 75
+      GOLD: 150
+      PLATINUM: 300
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

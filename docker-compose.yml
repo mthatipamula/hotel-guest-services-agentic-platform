@@ -1,0 +1,27 @@
+# Local infrastructure. Run the services with ./scripts/run-local.sh (Gradle bootRun),
+# or the whole stack in containers with: docker compose --profile full up --build
+name: guestops
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: guestops
+      POSTGRES_PASSWORD: guestops
+      POSTGRES_DB: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guestops"]
+      interval: 5s
+      retries: 20
+    networks: [core-net]
+
+volumes:
+  pgdata:
+
+networks:
+  core-net:

@@ -1,0 +1,33 @@
+server:
+  port: ${PORT:8090}
+spring:
+  application:
+    name: agent-registry
+  ai:
+    model:
+      # The registry never calls an LLM.
+      chat: none
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/agentregistry}
+    username: ${DB_USER:guestops}
+    password: ${DB_PASSWORD:guestops}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+  flyway:
+    enabled: true
+guestops:
+  service-name: agent-registry
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:8090}
+  network-zone: core
+  auth:
+    mode: ${SERVICE_AUTH_MODE:SHARED_TOKEN}
+    shared-token: ${SERVICE_SHARED_TOKEN:local-dev-token-change-me}
+  registry:
+    url: ${PUBLIC_BASE_URL:http://localhost:8090}
+    # An agent or MCP server is UNREACHABLE after this many seconds without a heartbeat.
+    stale-after-seconds: 90
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
