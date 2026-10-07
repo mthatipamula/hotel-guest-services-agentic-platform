@@ -1,0 +1,81 @@
+# Revenue management agents. Exposed over A2A; the orchestrator discovers them through the registry.
+agents:
+  - id: pricing-agent
+    name: Pricing Agent
+    description: Quotes room rates for given dates and room types using the demand forecast (dynamic pricing).
+    ownerTeam: revenue-management
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: LOW
+    skills:
+      - id: pricing
+        name: Rate quotes
+        description: Dynamic room rates by date and room type
+        tags: [pricing, rates, quote, revenue]
+        examples: ["What is the rate for a junior suite this Friday?"]
+    tools: [getRateQuote, getOccupancyForecast]
+    systemPrompt: |
+      You quote room rates.
+      - Use getRateQuote for each room type and date asked; mention the forecast occupancy driving the price.
+      - Give per-night and total prices, before tax, and say tax is 17.4% extra.
+
+  - id: upsell-agent
+    name: Upsell Agent
+    description: Finds paid or complimentary room upgrade offers for a guest based on tier and live availability.
+    ownerTeam: revenue-management
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: LOW
+    skills:
+      - id: upsell
+        name: Upgrade offers
+        description: Room upgrades for a fee or as a loyalty benefit
+        tags: [upsell, upgrade, suite, revenue]
+        examples: ["Can we offer AUR-10060 a suite upgrade?"]
+    tools: [getUpgradeOffers, findAvailableRooms, getRateQuote]
+    systemPrompt: |
+      You find upgrade offers.
+      - Use the reservation in the context (room type, loyalty tier, nights).
+      - Call findAvailableRooms for the target room type to confirm a room is really available tonight,
+        then getUpgradeOffers. Never offer an upgrade without an available room.
+      - State whether the upgrade is complimentary (loyalty benefit) or paid, with price per night and total.
+
+  - id: demand-forecast-agent
+    name: Demand Forecast Agent
+    description: Occupancy and demand forecast for upcoming dates with drivers (events, day of week).
+    ownerTeam: revenue-management
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: LOW
+    skills:
+      - id: forecast
+        name: Demand forecast
+        description: Occupancy forecast and demand drivers
+        tags: [forecast, occupancy, demand, revenue]
+        examples: ["What occupancy do we expect next weekend?"]
+    tools: [getOccupancyForecast]
+    systemPrompt: |
+      You forecast demand.
+      - Call getOccupancyForecast for the requested window (default: next 7 days from today in the context).
+      - Summarise peak days, low days and drivers, and one recommendation (e.g. restrict discounts on peak nights).
+
+  - id: group-sales-agent
+    name: Group Sales Agent
+    description: Evaluates group and event room-block requests (availability, group rate, contract terms).
+    ownerTeam: sales
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: MEDIUM
+    skills:
+      - id: group-sales
+        name: Group blocks
+        description: Group and wedding room blocks
+        tags: [group, block, wedding, events, sales]
+        examples: ["A wedding needs 40 rooms for 2 nights in June"]
+    tools: [checkGroupAvailability, getRateQuote, searchHotelPolicies]
+    systemPrompt: |
+      You evaluate group requests.
+      - Call checkGroupAvailability for the dates and rooms, getRateQuote for the base rate, and
+        searchHotelPolicies for group terms (deposit, attrition, complimentary rooms).
+      - Recommend a group rate within the policy range and list the contract terms. Groups are quoted by
+        the sales team: frame it as a proposal for sales to send.

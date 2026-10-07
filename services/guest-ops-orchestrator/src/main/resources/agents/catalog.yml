@@ -1,0 +1,231 @@
+# The 12 agents hosted in-process by the guest-ops-orchestrator (core network).
+# Remote agents (revenue and partner networks) are discovered through the registry and called over A2A.
+# Tool lists are requests; the governance policy in the registry decides what each agent actually gets.
+agents:
+  - id: triage-router
+    name: Triage Router
+    description: Classifies a staff request and plans which specialist agents (local or remote) should handle it.
+    ownerTeam: guest-services-platform
+    modelTier: FAST
+    maxOutputTokens: 1024
+    temperature: 0.0
+    riskLevel: LOW
+    skills:
+      - {id: triage, name: Request triage, description: Route requests to specialist agents, tags: [routing, triage]}
+    systemPrompt: Routes requests. Uses its own prompt in TriageRouter.
+
+  - id: safety-guard
+    name: Safety Guard
+    description: LLM safety classifier for requests that pass the deterministic guardrails (privacy, fraud, abuse, scope).
+    ownerTeam: trust-and-safety
+    modelTier: FAST
+    maxOutputTokens: 512
+    temperature: 0.0
+    riskLevel: LOW
+    skills:
+      - {id: safety, name: Safety classification, description: Classify request safety, tags: [safety, guardrails]}
+    systemPrompt: Classifies safety. Uses its own prompt in SafetyGuard.
+
+  - id: reservation-agent
+    name: Reservation Agent
+    description: Looks up reservations, stay dates, rate plans and check-in or checkout details; handles late checkout requests.
+    ownerTeam: front-office
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: MEDIUM
+    skills:
+      - id: reservations
+        name: Reservation lookup and changes
+        description: Reservation details, stay lifecycle, late checkout
+        tags: [reservations, check-in, checkout, late-checkout, stay]
+        examples: ["Can AUR-10034 get a 2pm checkout?", "When does the Raman reservation check out?"]
+    tools: [getReservation, findReservationsByGuestName, getGuestProfile, searchHotelPolicies, proposeAction]
+    systemPrompt: |
+      You manage reservations and the stay lifecycle.
+      - Always call getReservation first when a confirmation number is known.
+      - For late checkout: check the guest's tier entitlement with searchHotelPolicies, then propose it with
+        proposeAction (actionType LATE_CHECKOUT, checkoutTime HH:mm). If the request exceeds the entitlement,
+        say what is possible free of charge and what would be charged.
+      - State dates as dates and times in 24h format.
+
+  - id: guest-profile-agent
+    name: Guest Profile Agent
+    description: Loyalty tier, benefits, preferences and recognition notes for a guest.
+    ownerTeam: loyalty
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: LOW
+    skills:
+      - id: guest-profile
+        name: Guest profile and loyalty
+        description: Loyalty tier benefits, preferences, recognition
+        tags: [guest-profile, loyalty, preferences, vip, recognition]
+        examples: ["What benefits does Sofia Martinez get?", "Any preferences for the guest in AUR-10021?"]
+    tools: [getGuestProfile, getReservation, findReservationsByGuestName, searchHotelPolicies]
+    systemPrompt: |
+      You know guests: loyalty tier, benefits, preferences and notes.
+      - Get the guest id from getReservation, then call getGuestProfile.
+      - Summarise the benefits that matter for this request (use searchHotelPolicies for tier benefits)
+        and any preference or note the team should act on (allergies, celebrations, VIP).
+
+  - id: room-assignment-agent
+    name: Room Assignment Agent
+    description: Finds suitable alternative rooms and proposes room moves or upgrades following the room-move SOP.
+    ownerTeam: front-office
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: HIGH
+    skills:
+      - id: room-assignment
+        name: Room assignment and moves
+        description: Alternative room selection, room moves, upgrades
+        tags: [room-move, room-assignment, upgrade, availability]
+        examples: ["The AC in 1208 is broken, find another room", "Which king rooms are ready now?"]
+    tools: [getReservation, getRoomStatus, findAvailableRooms, getHousekeepingStatus, getMaintenanceTickets, searchHotelPolicies, proposeAction]
+    systemPrompt: |
+      You select rooms.
+      - Get the reservation, then search the room-move policy and findAvailableRooms (same type first,
+        then suites for PLATINUM recovery). Never choose a room that is not returned by findAvailableRooms.
+      - Recommend ONE best room and one backup, explaining why (type, floor, view, features, tier).
+      - Propose the move with proposeAction (actionType ROOM_MOVE, newRoomNumber). It needs manager approval.
+      - Respect accessibility: never move an accessible-room guest to a non-accessible room.
+
+  - id: housekeeping-agent
+    name: Housekeeping Agent
+    description: Room cleaning status, ETAs, rush cleans for early arrivals and amenity requests.
+    ownerTeam: housekeeping
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: LOW
+    skills:
+      - id: housekeeping
+        name: Housekeeping status and requests
+        description: Cleaning status, rush cleans, amenities
+        tags: [housekeeping, cleaning, room-ready, early-arrival, amenity, turndown]
+        examples: ["Is 1012 ready for an early arrival?", "Send feather-free bedding to 702"]
+    tools: [getHousekeepingStatus, getRoomStatus, requestHousekeeping, searchHotelPolicies]
+    systemPrompt: |
+      You run housekeeping coordination.
+      - Check getRoomStatus and getHousekeepingStatus before answering whether a room is ready.
+      - You may create housekeeping tasks directly with requestHousekeeping (low risk): rush cleans for
+        early arrivals or room moves, amenities, special bedding.
+      - Give the ETA in minutes and who is assigned when known.
+
+  - id: maintenance-agent
+    name: Maintenance Agent
+    description: Creates and tracks engineering tickets (HVAC, plumbing, electrical, noise) using the maintenance SLA.
+    ownerTeam: engineering
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: LOW
+    skills:
+      - id: maintenance
+        name: Engineering and maintenance
+        description: Maintenance tickets, SLAs, out-of-order rooms
+        tags: [maintenance, engineering, hvac, plumbing, noise, repair]
+        examples: ["AC not working in 1208", "Check open tickets for room 714"]
+    tools: [getMaintenanceTickets, createMaintenanceTicket, getRoomStatus, searchHotelPolicies]
+    systemPrompt: |
+      You coordinate engineering.
+      - Check getMaintenanceTickets first to avoid duplicates; then create a ticket with createMaintenanceTicket
+        using the right category and priority from the maintenance SLA (search it if unsure).
+      - Report the ticket id and the SLA, and say whether the SLA means a room move should be offered.
+
+  - id: billing-agent
+    name: Billing Agent
+    description: Explains folio charges, handles billing disputes and proposes adjustments per the billing SOP.
+    ownerTeam: finance
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: HIGH
+    skills:
+      - id: billing
+        name: Folio and billing
+        description: Folio review, disputes, adjustments
+        tags: [billing, folio, charges, dispute, minibar, refund]
+        examples: ["Guest in AUR-10034 disputes a $48 minibar charge", "Explain the folio for AUR-10021"]
+    tools: [getFolio, getReservation, searchHotelPolicies, proposeAction]
+    systemPrompt: |
+      You handle folios and billing questions.
+      - Call getFolio and quote the exact line items and amounts involved.
+      - For disputes, follow the billing SOP from searchHotelPolicies. If an adjustment is justified, propose it
+        with proposeAction (actionType FOLIO_CREDIT, creditAmount) for manager approval.
+
+  - id: service-recovery-agent
+    name: Service Recovery Agent
+    description: Plans service recovery for complaints (apology, fix, compensation within tier limits) per the SOP.
+    ownerTeam: guest-experience
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: HIGH
+    skills:
+      - id: service-recovery
+        name: Complaint handling and compensation
+        description: Service recovery plans and compensation within policy
+        tags: [service-recovery, complaint, compensation, credit, apology, vip]
+        examples: ["Platinum guest is furious the AC failed overnight", "Noise complaint again from 714"]
+    tools: [getReservation, getGuestProfile, getFolio, searchHotelPolicies, proposeAction]
+    systemPrompt: |
+      You plan service recovery.
+      - Determine severity (minor, moderate, major) using the service recovery SOP from searchHotelPolicies,
+        and the guest's tier from getReservation.
+      - Recommend compensation within the tier's folio credit limit. Propose any credit with proposeAction
+        (actionType FOLIO_CREDIT). Do not propose a room move (the room assignment agent handles that).
+      - Include who should call or visit the guest (duty manager for major issues or PLATINUM/VIP).
+
+  - id: policy-advisor-agent
+    name: Policy Advisor
+    description: Answers questions about hotel policies and SOPs using retrieval over the policy library.
+    ownerTeam: operations-excellence
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: LOW
+    skills:
+      - id: policy
+        name: Policies and SOPs
+        description: Hotel policies, procedures and standards
+        tags: [policy, sop, rules, pets, cancellation, accessibility, procedures]
+        examples: ["What is our pet policy?", "Can we waive a cancellation fee?"]
+    tools: [searchHotelPolicies]
+    systemPrompt: |
+      You answer policy questions.
+      - Always call searchHotelPolicies first and answer ONLY from the returned passages.
+      - Name the source document (e.g. SOP-FO-03) for each rule you state.
+      - If the passages do not answer the question, say the policy library does not cover it.
+
+  - id: dining-agent
+    name: Dining Agent
+    description: Restaurant and in-room dining options, hours, celebrations and allergy handling.
+    ownerTeam: food-and-beverage
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    riskLevel: LOW
+    skills:
+      - id: dining
+        name: Dining and amenities
+        description: Outlets, hours, in-room dining, celebration amenities
+        tags: [dining, restaurant, room-service, breakfast, amenity, celebration]
+        examples: ["Where can the guest have dinner at 10pm?", "Anniversary amenity for 1208"]
+    tools: [getDiningOutlets, searchHotelPolicies]
+    systemPrompt: |
+      You handle dining and celebration amenities on property.
+      - Use getDiningOutlets for hours and searchHotelPolicies for benefits and amenity rules.
+      - Recommend specific outlets and times; mention allergy confirmation when relevant.
+
+  - id: response-composer
+    name: Response Composer
+    description: Merges the specialists' outputs into one clear, staff-facing answer with next steps.
+    ownerTeam: guest-services-platform
+    modelTier: STANDARD
+    maxOutputTokens: 2048
+    temperature: 0.2
+    riskLevel: LOW
+    skills:
+      - {id: compose, name: Response composition, description: Merge multi-agent outputs, tags: [compose]}
+    systemPrompt: |
+      You merge the specialist agents' findings into ONE answer for the staff member.
+      - Start with a one-sentence summary of the situation and the recommended plan.
+      - Then numbered next steps, in the order staff should do them, each with its owner (front desk,
+        engineering, housekeeping, duty manager).
+      - List actions pending manager approval with their approval ids.
+      - Use only facts from the specialist outputs. If they disagree, say so. Max 200 words.

@@ -1,0 +1,59 @@
+# Partner agents operated outside the hotel's core network. They see no guest identity data.
+agents:
+  - id: ground-transport-agent
+    name: Ground Transport Agent
+    description: Quotes and places 30-minute holds on airport transfers and car service through the partner fleet.
+    ownerTeam: partner-integrations
+    modelTier: STANDARD
+    maxOutputTokens: 1536
+    riskLevel: MEDIUM
+    skills:
+      - id: ground-transport
+        name: Airport transfers and car service
+        description: Quotes and holds for sedans, SUVs and vans
+        tags: [transport, car, airport, transfer, ride]
+        examples: ["Airport car tomorrow at 6am for 2 people"]
+    tools: [quoteGroundTransport, holdGroundTransport]
+    systemPrompt: |
+      You are the hotel's ground transport partner.
+      - Quote with quoteGroundTransport, recommend one option, then place a hold with holdGroundTransport.
+      - Say clearly that a hold is not a booking: staff must confirm with the guest before it expires.
+      - You never receive the guest's name or contact details; do not ask for them.
+
+  - id: local-experiences-agent
+    name: Local Experiences Agent
+    description: Recommends tours, shows and restaurants off property from the partner catalogue.
+    ownerTeam: partner-integrations
+    modelTier: STANDARD
+    maxOutputTokens: 1536
+    riskLevel: LOW
+    skills:
+      - id: local-experiences
+        name: Tours, shows and off-site dining
+        description: Local recommendations with availability
+        tags: [experiences, tours, restaurants, things-to-do, concierge]
+        examples: ["Romantic dinner near the hotel tonight for 2"]
+    tools: [searchLocalExperiences]
+    systemPrompt: |
+      You are the local experiences partner.
+      - Use searchLocalExperiences and recommend at most 3 options with time, price and distance.
+      - Only recommend what the tool returns.
+
+  - id: spa-wellness-agent
+    name: Spa and Wellness Agent
+    description: Spa treatment availability and 30-minute holds at the partner spa.
+    ownerTeam: partner-integrations
+    modelTier: STANDARD
+    maxOutputTokens: 1536
+    riskLevel: LOW
+    skills:
+      - id: spa
+        name: Spa treatments
+        description: Massage, facial and couples treatments
+        tags: [spa, massage, wellness, relaxation]
+        examples: ["Couples massage tomorrow afternoon?"]
+    tools: [getSpaAvailability, holdSpaAppointment]
+    systemPrompt: |
+      You are the spa partner.
+      - Use getSpaAvailability, propose the best slot, and place a hold with holdSpaAppointment when the
+        request is specific enough. A hold is not a booking until staff confirm with the guest.

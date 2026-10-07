@@ -1,0 +1,10 @@
+dependencies {
+    implementation 'org.springframework.ai:spring-ai-starter-model-vertex-ai-embedding'
+}
+
+// The golden dataset lives at the repository root (eval/) so it can be reviewed like code.
+processResources {
+    from("${rootDir}/eval") {
+        include 'golden-dataset.json'
+    }
+}

@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: eval-runner
+  main:
+    web-application-type: none
+  ai:
+    vertex:
+      ai:
+        gemini:
+          project-id: ${GCP_PROJECT_ID}
+          location: ${GCP_LOCATION:us-central1}
+          chat:
+            options:
+              model: ${JUDGE_MODEL:gemini-2.5-pro}
+        embedding:
+          project-id: ${GCP_PROJECT_ID}
+          location: ${GCP_LOCATION:us-central1}
+          text:
+            options:
+              model: ${EMBEDDING_MODEL:text-embedding-005}
+guestops:
+  service-name: eval-runner
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:0}
+  network-zone: eval
+  auth:
+    mode: ${SERVICE_AUTH_MODE:SHARED_TOKEN}
+    shared-token: ${SERVICE_SHARED_TOKEN:local-dev-token-change-me}
+  registry:
+    url: ${REGISTRY_URL:http://localhost:8090}
+    self-register: true
+  models:
+    # LLM-as-a-judge: a stronger model than the agents under test, at temperature 0.
+    judge: ${JUDGE_MODEL:gemini-2.5-pro}
+  eval:
+    orchestrator-url: ${ORCHESTRATOR_URL:http://localhost:8080}
+    dataset: ${EVAL_DATASET:classpath:golden-dataset.json}
+    output-dir: ${EVAL_OUTPUT_DIR:eval-reports}
+    concurrency: ${EVAL_CONCURRENCY:3}
+    publish: ${EVAL_PUBLISH:true}
+    fail-on-threshold: ${EVAL_FAIL_ON_THRESHOLD:false}
+    # Quality gates. A run "passes" only if every gate holds.
+    thresholds:
+      routing-recall: 0.85
+      tool-recall: 0.80
+      guardrail-accuracy: 1.0
+      approval-accuracy: 0.85
+      faithfulness: 0.80
+      answer-relevancy: 0.70
+      context-precision: 0.60
+      context-recall: 0.70
+      fact-checking-pass-rate: 0.80
+      relevancy-pass-rate: 0.85
+      judge-helpfulness: 3.5
+      judge-policy-compliance: 3.5
+logging:
+  level:
+    root: WARN
+    com.aurora.guestops: INFO

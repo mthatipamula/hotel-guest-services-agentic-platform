@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aurora Guest Ops Console</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">A</span>
+    <div>
+      <div class="brand-title">Aurora Guest Ops</div>
+      <div class="brand-sub">Multi-agent operations copilot · Aurora Grand Chicago</div>
+    </div>
+  </div>
+  <div class="status-chips" id="statusChips"></div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-tab="console">Console</button>
+  <button class="tab" data-tab="approvals">Approvals <span class="badge" id="approvalBadge" hidden>0</span></button>
+  <button class="tab" data-tab="agents">Agents &amp; Governance</button>
+  <button class="tab" data-tab="tokens">Tokens &amp; Cost</button>
+  <button class="tab" data-tab="evals">Evaluations</button>
+  <button class="tab" data-tab="audit">Audit Trail</button>
+</nav>
+
+<main>
+  <!-- CONSOLE -->
+  <section class="panel active" id="tab-console">
+    <div class="console-grid">
+      <aside class="card side">
+        <h3><span class="step">1</span> Guest reservation <span class="muted">(optional)</span></h3>
+        <select id="reservation"><option value="">No specific reservation</option></select>
+        <div class="res-detail" id="resDetail"></div>
+        <label class="field">Your name
+          <input id="staffName" value="Jordan (Front Desk)">
+        </label>
+        <h3><span class="step">2</span> Try a scenario</h3>
+        <div class="scenarios" id="scenarios"></div>
+        <button class="ghost wide" id="newConversation">Start new conversation</button>
+      </aside>
+
+      <section class="card chat">
+        <div class="chat-head">
+          <div><b>Ask the agents</b> <span class="muted" id="convLabel"></span></div>
+          <span class="muted small">Pick a scenario on the left or describe the situation in your own words.</span>
+        </div>
+        <div class="thread" id="thread">
+          <div class="empty" id="emptyState">
+            <h2>How can the agents help?</h2>
+            <p>Describe a guest situation. The triage router picks the right specialists (12 in-process, 7 remote over A2A),
+              they work in parallel with hotel data through MCP, and high-impact actions wait for your approval.</p>
+          </div>
+        </div>
+        <form class="composer" id="composer">
+          <textarea id="message" rows="2" placeholder="e.g. Guest in 1208 says the AC is broken and the room is 84F..."></textarea>
+          <button type="submit" id="sendBtn">Send</button>
+        </form>
+      </section>
+
+      <aside class="card trace" id="trace">
+        <h3>Agent trace</h3>
+        <p class="muted">Send a request to see the plan, every agent call (local or A2A), tool calls via MCP,
+          governance decisions, guardrails and token usage.</p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- APPROVALS -->
+  <section class="panel" id="tab-approvals">
+    <div class="card">
+      <div class="row-between">
+        <div>
+          <h2>Human-in-the-loop approvals</h2>
+          <p class="muted">Agents can only <i>propose</i> room moves, folio credits and late checkouts. Nothing changes in the
+            hotel system until a manager approves here. The MCP tool re-checks tier limits and room status on execution.</p>
+        </div>
+        <label class="field inline">Approver <input id="approverName" value="Sam Patel (Duty Manager)"></label>
+      </div>
+      <div id="approvalsList"></div>
+    </div>
+  </section>
+
+  <!-- AGENTS -->
+  <section class="panel" id="tab-agents">
+    <div class="card">
+      <h2>Agent registry</h2>
+      <p class="muted">Every agent registers here: in-process agents by the orchestrator, remote agents by publishing an
+        A2A Agent Card that the registry fetches and verifies. Governance policies decide tools, callers, token budgets and
+        which guest data an agent may receive. <b>Suspend</b> is a live kill switch.</p>
+      <div class="summary-row" id="registrySummary"></div>
+      <div id="agentsByZone"></div>
+    </div>
+    <div class="card">
+      <h2>MCP registry</h2>
+      <p class="muted">Tool servers agents discover at runtime instead of hard-coding URLs.</p>
+      <div id="mcpServers"></div>
+    </div>
+  </section>
+
+  <!-- TOKENS -->
+  <section class="panel" id="tab-tokens">
+    <div class="card">
+      <h2>Token management</h2>
+      <p class="muted">Per-request budget, per-agent daily budgets (from governance), model tiering (flash-lite for routing and
+        safety, flash for specialists, pro for the judge), composer skipped for single-agent answers, truncated tool outputs and
+        cached policy search.</p>
+      <div class="summary-row" id="tokenToday"></div>
+      <div class="two-col">
+        <div><h3>By agent (today)</h3><div id="tokenByAgent"></div></div>
+        <div><h3>By model (today)</h3><div id="tokenByModel"></div><h3>Last 7 days</h3><div id="tokenDays"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EVALS -->
+  <section class="panel" id="tab-evals">
+    <div class="card">
+      <h2>Evaluations</h2>
+      <p class="muted">Golden dataset (<code>eval/golden-dataset.json</code>) scored three ways: agent metrics (routing, tool
+        trajectory, approvals, guardrails), Ragas metrics (faithfulness, answer relevancy, context precision/recall) and LLM-as-a-judge
+        (Spring AI FactCheckingEvaluator &amp; RelevancyEvaluator plus a rubric). Run <code>./scripts/run-evals.sh</code>.</p>
+      <div id="evalReport"><p class="muted">No evaluation run yet.</p></div>
+    </div>
+  </section>
+
+  <!-- AUDIT -->
+  <section class="panel" id="tab-audit">
+    <div class="card">
+      <div class="row-between"><h2>Audit trail</h2><button class="ghost" id="refreshAudit">Refresh</button></div>
+      <p class="muted">Append-only record of agent invocations, governance denials, guardrail blocks and approval decisions.</p>
+      <div id="auditList"></div>
+    </div>
+  </section>
+</main>
+
+<dialog id="cardDialog">
+  <div class="row-between"><h3 id="cardTitle">Agent Card</h3><button class="ghost" id="closeDialog">Close</button></div>
+  <pre id="cardJson"></pre>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

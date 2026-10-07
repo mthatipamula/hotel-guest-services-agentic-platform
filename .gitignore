@@ -1,0 +1,14 @@
+.gradle/
+build/
+bin/
+out/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+.env
+eval-reports/
+__pycache__/
+.venv/
+.run/
+.run-logs/
