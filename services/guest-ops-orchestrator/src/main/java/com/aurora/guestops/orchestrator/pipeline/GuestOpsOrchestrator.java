@@ -112,7 +112,7 @@ public class GuestOpsOrchestrator {
             return blocked(traceId, convId, start, blockMessage(verdict.reason()),
                     new Guardrails(true, verdict.reason(), false, null, false, List.of()));
         }
-        String text = verdict.sanitizedText();
+        String text = expandLookup(verdict.sanitizedText());
 
         // 2. LLM safety classifier
         String safetyCategory = "SKIPPED";
@@ -124,11 +124,19 @@ public class GuestOpsOrchestrator {
             safetyDegraded = s.degraded();
             if (!s.verdict().allowed()) {
                 registry.audit(traceId, safetyGuard.agentId(), "guardrail.safety", "request", "BLOCKED",
-                        Map.of("category", String.valueOf(s.verdict().category())));
-                return blocked(traceId, convId, start, "I can't help with that request: " + s.verdict().reason()
+                        Map.of("category", String.valueOf(s.verdict().category()),
+                                "reason", String.valueOf(s.verdict().reason()),
+                                "message", text.length() > 160 ? text.substring(0, 160) + "..." : text));
+                String reason = String.valueOf(s.verdict().reason()).strip().replaceAll("[.\\s]+$", "");
+                ChatResponse refused = blocked(traceId, convId, start, "I can't help with that request: " + reason
                                 + ". If this is a genuine guest need, please involve the duty manager.",
                         new Guardrails(true, "safety:" + s.verdict().category(), verdict.piiMasked(),
                                 safetyCategory, false, List.of()));
+                // The safety model still ran, so report the tokens it used.
+                return new ChatResponse(refused.traceId(), refused.conversationId(), refused.answer(), true,
+                        refused.guardrails(), refused.plan(), refused.agentRuns(), refused.approvals(),
+                        new Tokens(budget.used(), budget.limit(), round(cost[0]), tokensByAgent),
+                        refused.contexts(), refused.latencyMs());
             }
         }
 
@@ -320,6 +328,28 @@ public class GuestOpsOrchestrator {
                 new Plan(List.of(), "blocked", "NORMAL", 1.0, g.inputBlockReason(), false, List.of()),
                 List.of(), List.of(), new Tokens(0, props.requestTokenBudget(), 0, Map.of()), List.of(),
                 (System.nanoTime() - start) / 1_000_000);
+    }
+
+    private static final java.util.regex.Pattern CONFIRMATION_ONLY =
+            java.util.regex.Pattern.compile("(?i)^\\s*(AUR-\\d{5})\\s*[?.!]?\\s*$");
+    private static final java.util.regex.Pattern ROOM_ONLY =
+            java.util.regex.Pattern.compile("(?i)^\\s*(?:room\\s*)?#?(\\d{3,4})\\s*[?.!]?\\s*$");
+
+    /**
+     * Staff often type just an identifier. Turn a bare confirmation or room number into an explicit
+     * lookup so the safety guard and router see a clear request instead of an unexplained code.
+     */
+    static String expandLookup(String text) {
+        java.util.regex.Matcher conf = CONFIRMATION_ONLY.matcher(text);
+        if (conf.matches()) {
+            return "Show the reservation details, guest profile and current status for " + conf.group(1).toUpperCase() + ".";
+        }
+        java.util.regex.Matcher room = ROOM_ONLY.matcher(text);
+        if (room.matches()) {
+            return "What is the current status of room " + room.group(1)
+                    + " (occupancy, housekeeping and open maintenance tickets)?";
+        }
+        return text;
     }
 
     private static String blockMessage(String reason) {

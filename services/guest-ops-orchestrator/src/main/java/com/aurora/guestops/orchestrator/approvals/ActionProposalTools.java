@@ -17,12 +17,19 @@ public class ActionProposalTools {
     private final String traceId;
     private final String conversationId;
     private final String agentId;
+    private final java.util.Set<String> allowedReservations;
 
-    public ActionProposalTools(ApprovalService approvals, String traceId, String conversationId, String agentId) {
+    /**
+     * @param allowedReservations confirmation numbers staff identified in this request or conversation;
+     *                            proposals for any other reservation are rejected
+     */
+    public ActionProposalTools(ApprovalService approvals, String traceId, String conversationId, String agentId,
+                               java.util.Set<String> allowedReservations) {
         this.approvals = approvals;
         this.traceId = traceId;
         this.conversationId = conversationId;
         this.agentId = agentId;
+        this.allowedReservations = allowedReservations;
     }
 
     public List<ToolCallback> callbacks() {
@@ -40,6 +47,13 @@ public class ActionProposalTools {
             @ToolParam(required = false, description = "For FOLIO_CREDIT: amount in USD") Double creditAmount,
             @ToolParam(required = false, description = "For LATE_CHECKOUT: time as HH:mm") String checkoutTime,
             @ToolParam(description = "Why this action is appropriate, citing policy") String justification) {
+        String conf = confirmationNumber == null ? "" : confirmationNumber.trim().toUpperCase();
+        if (!allowedReservations.contains(conf)) {
+            return Map.of("status", "rejected", "reason", allowedReservations.isEmpty()
+                    ? "Staff have not identified a reservation. Ask which guest or confirmation number this is for."
+                    : "Actions may only be proposed for the reservation staff identified: "
+                            + String.join(", ", allowedReservations));
+        }
         ApprovalService.ProposalResult r = approvals.propose(traceId, conversationId, agentId, actionType,
                 confirmationNumber, newRoomNumber, creditAmount, checkoutTime, justification);
         return r.accepted()

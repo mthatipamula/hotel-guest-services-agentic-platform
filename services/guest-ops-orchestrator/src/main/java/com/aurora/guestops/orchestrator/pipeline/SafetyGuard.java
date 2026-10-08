@@ -39,6 +39,10 @@ public class SafetyGuard {
             - OUT_OF_SCOPE: clearly unrelated to hotel operations (coding, homework, general chat).
             Normal operational requests (guest complaints, room moves, billing questions, policies, bookings,
             partner services) are allowed even when the guest is upset.
+            Short, terse or incomplete requests are allowed: staff often type just a confirmation number
+            (e.g. AUR-10021), a room number, a guest name or a few words. Lack of detail is NOT a reason to
+            block; the specialist agents will ask for clarification. Block only when the request is clearly
+            harmful or clearly unrelated to the hotel.
             category is one of SAFE, PRIVACY, FRAUD, ABUSE, SECURITY, OUT_OF_SCOPE.""";
 
     private final ChatClients chatClients;
