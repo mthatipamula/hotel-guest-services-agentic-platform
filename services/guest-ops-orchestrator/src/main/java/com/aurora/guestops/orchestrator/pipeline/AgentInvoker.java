@@ -102,8 +102,8 @@ public class AgentInvoker {
         }
         List<ToolCallback> requested = new ArrayList<>(tools.resolve(def.tools()));
         if (def.tools().contains("proposeAction")) {
-            requested.addAll(new ActionProposalTools(approvals, request.traceId(), request.conversationId(), def.id())
-                    .callbacks());
+            requested.addAll(new ActionProposalTools(approvals, request.traceId(), request.conversationId(), def.id(),
+                    staffSuppliedReservations(request)).callbacks());
         }
         List<ToolCallback> granted = governance.filterTools(policy, requested);
         List<String> grantedNames = granted.stream().map(t -> t.getToolDefinition().name()).toList();
@@ -158,6 +158,32 @@ public class AgentInvoker {
                     e.getMessage(), elapsed(start)),
                     new Governance("ALLOWED", d.reason(), cls.name(), List.of(), List.of(), stripped), "remote", 0);
         }
+    }
+
+    private static final java.util.regex.Pattern CONFIRMATION = java.util.regex.Pattern.compile("(?i)\\bAUR-\\d{5}\\b");
+
+    /**
+     * Reservations staff actually identified: the one selected in the console, plus any confirmation number
+     * written in the request or recent conversation. Agents may only propose actions for these, so a model
+     * that guesses or invents a guest cannot queue an action against the wrong reservation.
+     */
+    static java.util.Set<String> staffSuppliedReservations(AgentRequest request) {
+        java.util.Set<String> out = new java.util.LinkedHashSet<>();
+        if (request.context() != null && request.context().get("confirmationNumber") instanceof String c) {
+            out.add(c.toUpperCase());
+        }
+        List<String> texts = new ArrayList<>();
+        texts.add(request.message());
+        if (request.history() != null) {
+            texts.addAll(request.history());
+        }
+        for (String t : texts) {
+            java.util.regex.Matcher m = CONFIRMATION.matcher(t == null ? "" : t);
+            while (m.find()) {
+                out.add(m.group().toUpperCase());
+            }
+        }
+        return out;
     }
 
     private Decision check(String agentId, RegisteredAgent registered, GovernancePolicy policy, TokenBudget budget) {
