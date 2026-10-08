@@ -25,7 +25,8 @@ guestops:
   registry:
     url: ${PUBLIC_BASE_URL:http://localhost:8090}
     # An agent or MCP server is UNREACHABLE after this many seconds without a heartbeat.
-    stale-after-seconds: 90
+    # On Cloud Run services scale to zero and stop heartbeating while idle, so this is raised there.
+    stale-after-seconds: ${STALE_AFTER_SECONDS:90}
 management:
   endpoints:
     web:

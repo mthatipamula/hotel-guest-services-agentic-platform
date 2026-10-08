@@ -25,7 +25,7 @@ public class InboundAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        boolean machineEndpoint = path.startsWith("/a2a/") || path.startsWith("/mcp")
+        boolean machineEndpoint = path.startsWith("/a2a/") || path.startsWith("/mcp") || path.startsWith("/admin/")
                 || (path.startsWith("/api/registry/") && !"GET".equals(request.getMethod()))
                 || path.startsWith("/api/governance/") && !"GET".equals(request.getMethod())
                 || path.startsWith("/api/audit") && !"GET".equals(request.getMethod());

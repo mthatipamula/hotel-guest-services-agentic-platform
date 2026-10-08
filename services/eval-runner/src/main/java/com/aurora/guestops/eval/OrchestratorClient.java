@@ -1,9 +1,11 @@
 package com.aurora.guestops.eval;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.aurora.guestops.commons.security.ServiceAuth;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -14,11 +16,20 @@ public class OrchestratorClient {
 
     private final RestClient rest;
 
-    public OrchestratorClient(EvalProperties props) {
+    public OrchestratorClient(EvalProperties props, ServiceAuth auth) {
         SimpleClientHttpRequestFactory rf = new SimpleClientHttpRequestFactory();
         rf.setConnectTimeout(Duration.ofSeconds(5));
         rf.setReadTimeout(Duration.ofMinutes(4));
-        this.rest = RestClient.builder().baseUrl(props.orchestratorUrl()).requestFactory(rf).build();
+        String base = props.orchestratorUrl();
+        // On Cloud Run the orchestrator only accepts callers with a Google ID token (roles/run.invoker).
+        this.rest = RestClient.builder().baseUrl(base).requestFactory(rf)
+                .requestInterceptor((request, body, execution) -> {
+                    if (auth.mode() == com.aurora.guestops.commons.config.GuestOpsProperties.AuthMode.GOOGLE_ID_TOKEN) {
+                        auth.authorizationHeader(base).ifPresent(h -> request.getHeaders().set(HttpHeaders.AUTHORIZATION, h));
+                    }
+                    return execution.execute(request, body);
+                })
+                .build();
     }
 
     public JsonNode chat(String conversationId, String message, String confirmationNumber) {
@@ -33,6 +44,11 @@ public class OrchestratorClient {
     }
 
     public JsonNode publish(Map<String, Object> report) {
-        return rest.post().uri("/api/evals").body(report).retrieve().body(JsonNode.class);
+        String key = System.getenv().getOrDefault("CONSOLE_ADMIN_KEY", "");
+        return rest.post().uri("/api/evals").headers(h -> {
+            if (!key.isBlank()) {
+                h.set("X-Admin-Key", key);
+            }
+        }).body(report).retrieve().body(JsonNode.class);
     }
 }

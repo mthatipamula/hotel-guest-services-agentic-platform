@@ -2,9 +2,7 @@
 
 A distributed multi-agent platform for hotel guest services and operations (fictional brand: Aurora Hotels & Resorts),
 built with Java 21, Spring Boot 3.5, Spring AI 1.1, Vertex AI (Gemini + embeddings) and PostgreSQL + pgvector.
-
-> Status: work in progress on the `feature/agentic-platform` branch. Dockerfiles, GCP deployment scripts and full
-> documentation are still to come.
+Runs locally with Docker and deploys to Google Cloud Run with Cloud SQL.
 
 ## What is in it
 
@@ -37,11 +35,74 @@ Supporting services:
 
 ## Run locally
 
-Prerequisites: Java 21, Docker, `gcloud auth application-default login`, Vertex AI API enabled.
+Prerequisites: Java 21, Docker, the gcloud CLI, and a Google Cloud project with the Vertex AI API enabled.
 
 ```bash
+gcloud auth application-default login      # once
 export GCP_PROJECT_ID=your-project-id
-./scripts/run-local.sh          # Postgres + 5 services; console on http://localhost:8080
-./scripts/run-evals.sh          # golden-dataset evaluation
+./scripts/run-local.sh                      # Postgres + 5 services; console on http://localhost:8080
+./scripts/run-evals.sh                      # golden-dataset evaluation (needs the services running)
 ./scripts/run-local.sh stop
+```
+
+Use `ORCHESTRATOR_PORT=8085 ./scripts/run-local.sh` if port 8080 is taken. Logs are in `.run/<service>.log`.
+
+## Deploy to Google Cloud
+
+Deploys the five services to Cloud Run (partner agents in a second region to model an external network), the
+eval runner as a Cloud Run job, and Postgres 16 + pgvector on Cloud SQL. Images are built by Cloud Build, so
+nothing is built on your machine. Full details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+### Prerequisites
+- A Google Cloud project with billing enabled, and the gcloud CLI logged in as a project owner.
+- Settings live in [`deploy/gcp/config.env`](deploy/gcp/config.env) (project, regions, Cloud SQL tier, image tag,
+  public or private console). Any value can be overridden with an environment variable.
+
+### Steps
+```bash
+gcloud auth login
+export PROJECT_ID=your-project-id
+
+./deploy/gcp/01-setup.sh      # one-time: APIs, Artifact Registry, Cloud SQL, secrets, service accounts (~10 min)
+./deploy/gcp/02-build.sh      # Cloud Build: jars + 6 container images (~3 min)
+./deploy/gcp/03-deploy.sh     # Cloud Run services, least-privilege IAM, eval job (~10 min)
+./deploy/gcp/status.sh        # service URLs and registry summary (expect 19 agents active)
+```
+
+All scripts are safe to re-run. To ship a new version, build and deploy with a new tag:
+`TAG=v3 ./deploy/gcp/02-build.sh && TAG=v3 ./deploy/gcp/03-deploy.sh`.
+
+### Use it
+| Task | Command |
+|---|---|
+| Open the console (public URL) | printed at the end of `03-deploy.sh` |
+| Open the console privately (`PUBLIC_UI=false`) | `./deploy/gcp/open-console.sh` then http://localhost:8080 |
+| Admin key for approvals and the agent kill switch | `gcloud secrets versions access latest --secret guestops-console-admin-key --project $PROJECT_ID \| pbcopy` |
+| Run the evaluation suite | `./deploy/gcp/run-evals.sh` (results in the console's Evaluations tab) |
+| Reload the demo hotel data | `./deploy/gcp/reset-demo-data.sh` |
+
+### Security on GCP
+- Services call each other with Google-signed ID tokens; each has its own service account with `roles/run.invoker`
+  only on the services it calls. Only the console can be public.
+- On a public console, admin actions require the admin key and chat is rate limited (6 requests/minute per client),
+  on top of each agent's daily token budget.
+
+### Cost
+Cloud SQL `db-f1-micro` is the main fixed cost (about $10/month while it exists). Cloud Run scales to zero when
+idle, and Vertex AI is pay per request (typically under a cent per multi-agent request).
+
+## Tear down on Google Cloud
+
+Deletes everything the deploy scripts created: Cloud Run services and job, the Cloud SQL instance (**all data**),
+Artifact Registry images, secrets and service accounts. It asks you to type the project id to confirm.
+
+```bash
+./deploy/gcp/teardown.sh
+```
+
+APIs stay enabled and cost nothing. If you created a project just for this platform, deleting the whole project
+also removes everything:
+
+```bash
+gcloud projects delete your-project-id
 ```

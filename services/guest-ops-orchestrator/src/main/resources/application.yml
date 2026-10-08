@@ -38,6 +38,10 @@ guestops:
   mcp:
     server-id: hotel-mcp-server
     fallback-url: ${MCP_FALLBACK_URL:}
+  console:
+    # When set (Cloud Run), admin actions need the X-Admin-Key header. Empty = open (local development).
+    admin-key: ${CONSOLE_ADMIN_KEY:}
+    chat-requests-per-minute: ${CHAT_REQUESTS_PER_MINUTE:6}
   orchestrator:
     max-agents-per-request: 4
     request-token-budget: 60000

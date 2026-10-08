@@ -47,6 +47,8 @@ guestops:
   registry:
     url: ${REGISTRY_URL:http://localhost:8090}
   hotel:
+    # true: reload demo data at every start (local). false: only seed an empty database (Cloud Run).
+    reset-demo-data: ${RESET_DEMO_DATA:true}
     # Service-recovery credit ceilings per loyalty tier, enforced in code (defence in depth).
     credit-limits:
       MEMBER: 50

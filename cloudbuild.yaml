@@ -1,0 +1,39 @@
+# Builds all jars once, then one container image per service, and pushes them to Artifact Registry.
+#   gcloud builds submit --config cloudbuild.yaml --substitutions=_REGION=us-central1,_REPO=guestops,_TAG=v1
+substitutions:
+  _REGION: us-central1
+  _REPO: guestops
+  _TAG: latest
+
+options:
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - id: jars
+    name: eclipse-temurin:21-jdk
+    entrypoint: bash
+    args: ["-c", "./gradlew --no-daemon -q bootJar"]
+
+  - {id: agent-registry, waitFor: [jars], name: gcr.io/cloud-builders/docker,
+     args: [build, --build-arg, SERVICE=agent-registry, -t, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/agent-registry:${_TAG}", .]}
+  - {id: hotel-mcp-server, waitFor: [jars], name: gcr.io/cloud-builders/docker,
+     args: [build, --build-arg, SERVICE=hotel-mcp-server, -t, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/hotel-mcp-server:${_TAG}", .]}
+  - {id: guest-ops-orchestrator, waitFor: [jars], name: gcr.io/cloud-builders/docker,
+     args: [build, --build-arg, SERVICE=guest-ops-orchestrator, -t, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/guest-ops-orchestrator:${_TAG}", .]}
+  - {id: revenue-agents, waitFor: [jars], name: gcr.io/cloud-builders/docker,
+     args: [build, --build-arg, SERVICE=revenue-agents, -t, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/revenue-agents:${_TAG}", .]}
+  - {id: partner-agents, waitFor: [jars], name: gcr.io/cloud-builders/docker,
+     args: [build, --build-arg, SERVICE=partner-agents, -t, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/partner-agents:${_TAG}", .]}
+  - {id: eval-runner, waitFor: [jars], name: gcr.io/cloud-builders/docker,
+     args: [build, --build-arg, SERVICE=eval-runner, -t, "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/eval-runner:${_TAG}", .]}
+
+images:
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/agent-registry:${_TAG}"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/hotel-mcp-server:${_TAG}"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/guest-ops-orchestrator:${_TAG}"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/revenue-agents:${_TAG}"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/partner-agents:${_TAG}"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/eval-runner:${_TAG}"
+
+timeout: 1800s

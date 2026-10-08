@@ -1,0 +1,19 @@
+# Keep the build context small: images only need services/<name>/build/libs/<name>.jar.
+.git
+.gradle
+.run
+.run-logs
+eval-reports
+gradle
+docs
+deploy
+infra
+eval
+**/src
+**/build/classes
+**/build/resources
+**/build/tmp
+**/build/generated
+**/build/reports
+**/build/test-results
+libs/**/build
