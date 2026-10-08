@@ -36,6 +36,25 @@
 - Vertex AI: pay per request (a typical multi-agent request is about 5-20k tokens, under 1 cent).
 - Remove everything with `./deploy/gcp/teardown.sh`.
 
+### Minimise cost between demos: stop Cloud SQL
+Cloud SQL is the only resource billed while nobody uses the app. Stopping it leaves only storage
+(about $1.70/month for 10 GB) and keeps all data. While it is stopped the console loads, but chat,
+reservations and approvals fail.
+
+```bash
+# Stop (compute billing ends; data is kept)
+gcloud sql instances patch guestops-pg --activation-policy=NEVER --project YOUR_PROJECT_ID
+
+# Start again before a demo (takes 1-2 minutes)
+gcloud sql instances patch guestops-pg --activation-policy=ALWAYS --project YOUR_PROJECT_ID
+
+# Check: STOPPED NEVER = stopped, RUNNABLE ALWAYS = running
+gcloud sql instances describe guestops-pg --project YOUR_PROJECT_ID --format="value(state,settings.activationPolicy)"
+```
+
+After starting, open the console once to warm up the Cloud Run services (the first request takes an extra
+20-30 s while they cold start).
+
 ## Steps
 
 ```bash
