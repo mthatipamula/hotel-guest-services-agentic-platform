@@ -49,7 +49,16 @@ public class RegistryClient {
         SimpleClientHttpRequestFactory rf = new SimpleClientHttpRequestFactory();
         rf.setConnectTimeout(Duration.ofSeconds(3));
         rf.setReadTimeout(Duration.ofSeconds(15));
-        this.rest = RestClient.builder().baseUrl(baseUrl).requestFactory(rf).build();
+        // Every call carries the service credential: on Cloud Run, IAM rejects unauthenticated reads too.
+        this.rest = RestClient.builder().baseUrl(baseUrl).requestFactory(rf)
+                .requestInterceptor((request, body, execution) -> {
+                    if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
+                        auth.authorizationHeader(baseUrl)
+                                .ifPresent(h -> request.getHeaders().set(HttpHeaders.AUTHORIZATION, h));
+                    }
+                    return execution.execute(request, body);
+                })
+                .build();
         Duration ttl = Duration.ofSeconds(props.registry().policyCacheSeconds());
         this.policies = Caffeine.newBuilder().expireAfterWrite(ttl).maximumSize(500).build();
         this.agentLists = Caffeine.newBuilder().expireAfterWrite(Duration.ofSeconds(10)).maximumSize(50).build();

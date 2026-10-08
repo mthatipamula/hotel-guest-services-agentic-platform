@@ -95,7 +95,8 @@ public class ApiController {
 
     private static String approver(Decision d) {
         // In production this comes from the identity-aware proxy (IAP) header, not the request body.
-        return d == null || d.approver() == null || d.approver().isBlank() ? "duty-manager" : d.approver().trim();
+        String name = d == null || d.approver() == null || d.approver().isBlank() ? "duty-manager" : d.approver().trim();
+        return name.length() > 80 ? name.substring(0, 80) : name;
     }
 
     // ---------- Console data ----------

@@ -128,8 +128,8 @@ public class HotelRepository {
         jdbc.sql("""
                 INSERT INTO folio_charges (confirmation_number, charge_date, category, description, amount, posted_by)
                 VALUES (:c, CURRENT_DATE, 'CREDIT', :d, :a, :by)""")
-                .param("c", confirmationNumber).param("d", "Service recovery credit: " + reason)
-                .param("a", amount.negate()).param("by", approvedBy).update();
+                .param("c", confirmationNumber).param("d", truncate("Service recovery credit: " + reason, 500))
+                .param("a", amount.negate()).param("by", truncate(approvedBy, 80)).update();
     }
 
     public void moveReservation(String confirmationNumber, String fromRoom, String toRoom) {
@@ -149,7 +149,12 @@ public class HotelRepository {
 
     public void log(String operation, String target, String details, String by) {
         jdbc.sql("INSERT INTO operation_log (operation, target, details, performed_by) VALUES (:o, :t, :d, :b)")
-                .param("o", operation).param("t", target).param("d", details).param("b", by).update();
+                .param("o", operation).param("t", target).param("d", details).param("b", truncate(by, 80)).update();
+    }
+
+    /** Agent-written text (justifications) has no length guarantee; never let it fail a write. */
+    static String truncate(String s, int max) {
+        return s == null || s.length() <= max ? s : s.substring(0, max - 3) + "...";
     }
 
     private static String blankToNull(String s) {

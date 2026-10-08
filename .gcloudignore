@@ -1,0 +1,12 @@
+# Files not uploaded to Cloud Build (it builds the jars itself).
+.git/
+.gitignore
+.gradle/
+**/build/
+.run/
+.run-logs/
+eval-reports/
+.idea/
+.vscode/
+*.iml
+.DS_Store

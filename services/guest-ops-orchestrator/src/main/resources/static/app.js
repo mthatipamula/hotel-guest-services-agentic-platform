@@ -36,13 +36,24 @@ function newConversationId() {
   return 'conv-' + Math.random().toString(36).slice(2, 10);
 }
 
-async function api(path, options = {}) {
-  const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+function adminKey() {
+  try { return sessionStorage.getItem('guestopsAdminKey') || ''; } catch (e) { return ''; }
+}
+
+async function api(path, options = {}, retried = false) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (adminKey()) headers['X-Admin-Key'] = adminKey();
+  const res = await fetch(path, { ...options, headers });
   if (res.status === 204) return null;
   const body = await res.json().catch(() => ({}));
+  // Public deployments protect admin actions (approvals, kill switch) with a key; ask once per session.
+  if (res.status === 403 && body.code === 'admin_key_required' && !retried) {
+    const key = prompt('This action needs the console admin key (Secret Manager: guestops-console-admin-key):');
+    if (key) {
+      try { sessionStorage.setItem('guestopsAdminKey', key.trim()); } catch (e) { /* storage unavailable */ }
+      return api(path, options, true);
+    }
+  }
   if (!res.ok) throw new Error(body.error || body.detail || res.statusText);
   return body;
 }
