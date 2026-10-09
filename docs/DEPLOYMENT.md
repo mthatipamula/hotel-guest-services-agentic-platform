@@ -43,10 +43,10 @@ reservations and approvals fail.
 
 ```bash
 # Stop (compute billing ends; data is kept)
-gcloud sql instances patch guestops-pg --activation-policy=NEVER --project YOUR_PROJECT_ID
+gcloud sql instances patch guestops-pg --activation-policy=NEVER --project hotel-guest-ops-agentic
 
 # Start again before a demo (takes 1-2 minutes)
-gcloud sql instances patch guestops-pg --activation-policy=ALWAYS --project YOUR_PROJECT_ID
+gcloud sql instances patch guestops-pg --activation-policy=ALWAYS --project hotel-guest-ops-agentic
 
 # Check: STOPPED NEVER = stopped, RUNNABLE ALWAYS = running
 gcloud sql instances describe guestops-pg --project YOUR_PROJECT_ID --format="value(state,settings.activationPolicy)"
